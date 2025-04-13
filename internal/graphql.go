@@ -83,5 +83,11 @@ func CallGraphQL(ctx context.Context, endpoint string, query string, variables *
 		return string(respBody), nil
 	}
 
-	return prettyJSON.String(), nil
+	// JSON を圧縮する
+	compressedJSON := bytes.NewBuffer(nil)
+	if err := json.Compact(compressedJSON, respBody); err != nil {
+		return "", errors.Wrap(err, "failed to compress JSON")
+	}
+
+	return compressedJSON.String(), nil
 }
