@@ -5,6 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	mcp "github.com/ktr0731/go-mcp"
+	"github.com/ktr0731/go-mcp/protocol"
 	"golang.org/x/exp/jsonrpc2"
 )
 
@@ -14,13 +15,13 @@ type Server struct {
 
 func NewServer(name string, version string) *Server {
 	handler := &mcp.Handler{
-		Implementation: mcp.Implementation{
+		Implementation: protocol.Implementation{
 			Name:    name,
 			Version: version,
 		},
-		Capabilities: mcp.ServerCapabilities{
-			Tools:   &mcp.ToolCapability{},
-			Logging: &mcp.LoggingCapability{},
+		Capabilities: protocol.ServerCapabilities{
+			Tools:   &protocol.ToolCapability{},
+			Logging: &protocol.LoggingCapability{},
 		},
 	}
 	

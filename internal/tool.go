@@ -33,19 +33,33 @@ func (h *ToolHandler) Handle(ctx context.Context, method string, req protocol.Ca
 }
 
 func (h *ToolHandler) handleRunQuery(ctx context.Context, req protocol.CallToolRequestParams) (*mcp.CallToolResult, error) {
-	query, ok := req.Arguments["query"].(string)
-	if !ok {
-		return nil, errors.New("query must be a string")
+	argsJSON, err := json.Marshal(req.Arguments)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	
+	var args struct {
+		Query     string `json:"query"`
+		Variables string `json:"variables,omitempty"`
+		Headers   string `json:"headers,omitempty"`
+	}
+	
+	if err := json.Unmarshal(argsJSON, &args); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	
+	if args.Query == "" {
+		return nil, errors.New("query must be a non-empty string")
 	}
 	
 	var variables *string
-	if v, ok := req.Arguments["variables"].(string); ok && v != "" {
-		variables = &v
+	if args.Variables != "" {
+		variables = &args.Variables
 	}
 	
 	var headers *string
-	if v, ok := req.Arguments["headers"].(string); ok && v != "" {
-		headers = &v
+	if args.Headers != "" {
+		headers = &args.Headers
 	}
 
 	headersMap := make(map[string]string)
@@ -64,7 +78,7 @@ func (h *ToolHandler) handleRunQuery(ctx context.Context, req protocol.CallToolR
 		}
 	}
 
-	response, err := CallGraphQL(ctx, *endpoint, query, variables, headersMap)
+	response, err := CallGraphQL(ctx, *endpoint, args.Query, variables, headersMap)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
