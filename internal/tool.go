@@ -91,27 +91,29 @@ func (h *ToolHandler) handleRunQuery(ctx context.Context, req protocol.CallToolR
 }
 
 func RegisterTools(handler *mcp.Handler) {
+	inputSchema := json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"query": {
+				"type": "string",
+				"description": "GraphQL query to run"
+			},
+			"variables": {
+				"type": "string",
+				"description": "Variables in JSON format"
+			},
+			"headers": {
+				"type": "string",
+				"description": "Headers in JSON format"
+			}
+		},
+		"required": ["query"]
+	}`)
+
 	tool := protocol.Tool{
 		Name:        "run-query",
 		Description: "Run a GraphQL query",
-		InputSchema: protocol.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]protocol.ToolInputSchemaProperty{
-				"query": {
-					Type:        "string",
-					Description: "GraphQL query to run",
-				},
-				"variables": {
-					Type:        "string",
-					Description: "Variables in JSON format",
-				},
-				"headers": {
-					Type:        "string",
-					Description: "Headers in JSON format",
-				},
-			},
-			Required: []string{"query"},
-		},
+		InputSchema: inputSchema,
 	}
 
 	handler.Tools = append(handler.Tools, tool)
