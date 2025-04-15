@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/rerost/mcp-graphql/internal"
 )
 
@@ -45,74 +43,57 @@ func init() {
 	defaultHeader = make(MapFlag)
 	flag.Var(&defaultHeader, "headers", "Optional. Default headers for GraphQL requests. e.g. Authorization=Bearer ...")
 	flag.Parse()
+	
+	internal.SetEndpoint(endpoint)
+	internal.SetDefaultHeaders(defaultHeader.Get())
 }
 
-// Tools
-var RunQueryTool = internal.Tool{
-	Tool: mcp.NewTool("run-query",
-		mcp.WithDescription("Run a GraphQL query"),
-		mcp.WithString("query", mcp.Required(), mcp.Description("GraphQL query to run")),
-		mcp.WithString("variables", mcp.Description(`variables. JSON e.g. {"id": "123"}`)),
-		mcp.WithString("headers", mcp.Description(`headers. JSON e.g. {"Content-Type": "application/json"}"`)),
-	),
-	Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		query := request.Params.Arguments["query"].(string)
-		var variables *string
-		if request.Params.Arguments["variables"] != nil {
-			if v, ok := request.Params.Arguments["variables"].(string); ok {
-				variables = &v
-			}
-		}
-		var headers *string
-		if request.Params.Arguments["headers"] != nil {
-			if v, ok := request.Params.Arguments["headers"].(string); ok {
-				headers = &v
-			}
-		}
+func RunQueryHandler(ctx context.Context, request map[string]interface{}) (interface{}, error) {
+	query := request["query"].(string)
+	
+	var variables *string
+	if v, ok := request["variables"].(string); ok && v != "" {
+		variables = &v
+	}
+	
+	var headers *string
+	if v, ok := request["headers"].(string); ok && v != "" {
+		headers = &v
+	}
 
-		// Merge default
-		// Overwrite headers
-		headersMap := make(map[string]string)
-		{
-			for k, v := range defaultHeader.Get() {
-				headersMap[k] = v
-			}
-			if headers != nil {
-				reqHeaders := make(map[string]string)
-				if err := json.Unmarshal([]byte(*headers), &reqHeaders); err != nil {
-					return nil, errors.WithStack(err)
-				}
-
-				for k, v := range reqHeaders {
-					headersMap[k] = v
-				}
-			}
-		}
-
-		response, err := internal.CallGraphQL(ctx, *endpoint, query, variables, headersMap)
-		if err != nil {
+	// Merge default headers
+	headersMap := make(map[string]string)
+	for k, v := range defaultHeader.Get() {
+		headersMap[k] = v
+	}
+	
+	if headers != nil {
+		reqHeaders := make(map[string]string)
+		if err := json.Unmarshal([]byte(*headers), &reqHeaders); err != nil {
 			return nil, errors.WithStack(err)
 		}
 
-		return mcp.NewToolResultText(response), nil
-	},
-}
-
-func newServer() *internal.Server {
-	s := &internal.Server{
-		Server: server.NewMCPServer(
-			"MCP GraphQL",
-			"0.1.0",
-		),
+		for k, v := range reqHeaders {
+			headersMap[k] = v
+		}
 	}
 
-	s.AddTool(&RunQueryTool)
+	response, err := internal.CallGraphQL(ctx, *endpoint, query, variables, headersMap)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-	return s
+	return response, nil
 }
 
 func main() {
-	s := newServer()
+	s := internal.NewServer("MCP GraphQL", "0.1.0")
+
+	s.AddTool(&internal.Tool{
+		Name:        "run-query",
+		Description: "Run a GraphQL query",
+		Handler:     RunQueryHandler,
+	})
 
 	if err := s.ServeStdio(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
