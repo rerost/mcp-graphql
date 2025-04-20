@@ -17,6 +17,9 @@ import (
 // Flags
 var endpoint = flag.String("endpoint", "http://localhost:8080", "Required. GraphQL server URL")
 var schemaFile = flag.String("schema", "", "Optional. Path to GraphQL schema file")
+var transport = flag.String("transport", "stdio", "Optional. Transport type (stdio or sse)")
+var port = flag.String("port", ":8080", "Optional. Port to use for SSE server (only used with --transport=sse)")
+var baseURL = flag.String("base-url", "", "Optional. Base URL for SSE server (only used with --transport=sse)")
 
 type MapFlag map[string]string
 
@@ -114,8 +117,25 @@ func newServer() *internal.Server {
 func main() {
 	s := newServer()
 
-	if err := s.ServeStdio(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	switch *transport {
+	case "stdio":
+		if err := s.ServeStdio(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "sse":
+		var options []server.SSEOption
+		if *baseURL != "" {
+			options = append(options, server.WithBaseURL(*baseURL))
+		}
+		
+		fmt.Fprintf(os.Stderr, "Starting SSE server on %s\n", *port)
+		if err := s.ServeSSE(*port, options...); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "Error: Invalid transport type: %s. Must be 'stdio' or 'sse'\n", *transport)
 		os.Exit(1)
 	}
 }

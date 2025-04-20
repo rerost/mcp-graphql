@@ -14,6 +14,11 @@ func (h *Server) ServeStdio() error {
 	return errors.WithStack(server.ServeStdio(h.Server))
 }
 
+func (h *Server) ServeSSE(port string, options ...server.SSEOption) error {
+	sseServer := server.NewSSEServer(h.Server, options...)
+	return errors.WithStack(sseServer.Start(port))
+}
+
 func (h *Server) AddTool(t *Tool) {
 	h.Server.AddTool(t.Tool, t.Handler)
 }
